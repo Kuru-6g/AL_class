@@ -31,7 +31,7 @@ const SignInScreen = ({ navigation }) => {
           />
         </View>
         
-        <Text style={styles.welcomeText}>Welcome Back</Text>
+        <Text style={styles.welcomeText}>Welcome Back th</Text>
         <Text style={styles.subtitle}>Sign in to continue</Text>
         
         <View style={styles.formContainer}>

@@ -9,13 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.infy.sivaapp"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
+      "package": "com.infy.sivaapp",
       "edgeToEdgeEnabled": true
     },
     "web": {
@@ -36,10 +38,23 @@
       ],
       "expo-font",
       "expo-web-browser",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1086184608136-c306d6f0ufqq66u8n18s48uf1d29lhqh"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "googleClientId": "275178556140-qmlmg8l9nb2qu4saerisukpqes5snjbn.apps.googleusercontent.com",
+      "router": {},
+      "eas": {
+        "projectId": "e69e9bd7-a5e9-43f0-9a2f-78cdd5fd59af"
+      }
     }
   }
 }

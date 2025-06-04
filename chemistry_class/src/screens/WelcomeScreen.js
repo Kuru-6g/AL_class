@@ -14,11 +14,12 @@ const WelcomeScreen = ({ navigation }) => {
         <Text style={styles.byLine}>By</Text>
         <Text style={styles.companyName}>Guru's Classes</Text>
       </View>
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.button}
         onPress={() => navigation.navigate('SignIn')}
       >
-        <Text style={styles.buttonText}>Get Started</Text>
+        <Text style={styles.buttonText}>Get
+        </Text>
       </TouchableOpacity>
     </View>
   );
