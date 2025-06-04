@@ -6,13 +6,8 @@ const morgan = require('morgan');
 const path = require('path');
 const fs = require('fs');
 
-// Import routes
-const authRoutes = require('./routes/auth');
-const classRoutes = require('./routes/classes');
-const paymentRoutes = require('./routes/payments');
+
 const userRoutes = require('./routes/users');
-const uploadRoutes = require('./routes/uploads');
-const adminRoutes = require('./routes/admin');
 
 const app = express();
 
@@ -53,12 +48,9 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/classes', classRoutes);
-app.use('/api/payments', paymentRoutes);
+
 app.use('/api/users', userRoutes);
-app.use('/api/upload', uploadRoutes);
-app.use('/api/admin', adminRoutes);
+
 
 // Serve static files from uploads directory
 const uploadsDir = path.join(__dirname, '../uploads');

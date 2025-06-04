@@ -79,7 +79,10 @@ export default function SignInScreen() {
 
       const response = await fetch('http://192.168.8.114:5001/api/users/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${userInfo?.idToken}`,
+        },
         body: JSON.stringify({
           googleId: userInfo.id,
           email: userInfo.email,
