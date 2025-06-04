@@ -1,7 +1,6 @@
 const User = require('../models/User');
 const ErrorResponse = require('../utils/errorResponse');
 const asyncHandler = require('../middleware/async');
-
 // @desc    Get current user profile
 // @route   GET /api/users/me
 // @access  Private
@@ -169,3 +168,38 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
   await user.deleteOne();
   res.status(200).json({ success: true, data: {} });
 });
+
+
+
+
+exports.createOrFindGoogleUser = async (req, res, next) => {
+  try {
+    console.log('[POST /api/users/create] Payload:', req.body);
+    const { googleId, email, name, phoneNumber, district, photo } = req.body;
+
+    if (!googleId || !email) {
+      return res.status(400).json({ message: 'Missing googleId or email' });
+    }
+
+    let user = await User.findOne({ googleId });
+
+    if (user) {
+      return res.status(200).json({ message: 'User already exists', user });
+    }
+
+    user = new User({
+      googleId,
+      email,
+      name,
+      phoneNumber,
+      district,
+      photo
+    });
+
+    await user.save();
+
+    return res.status(201).json({ message: 'User created', user });
+  } catch (err) {
+    next(err);
+  }
+};

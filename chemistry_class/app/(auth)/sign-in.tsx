@@ -1,17 +1,20 @@
+import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity, StatusBar,
-  Image, Alert, ActivityIndicator
+  View, Text, StyleSheet, TouchableOpacity, StatusBar,
+  Image, Alert, ActivityIndicator, Modal, TextInput,
+  SafeAreaView, KeyboardAvoidingView, Platform
 } from 'react-native';
-import { Link } from 'expo-router';
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { GoogleSignin, statusCodes, isErrorWithCode } from '@react-native-google-signin/google-signin';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function SignInScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login, loginWithGoogle } = useAuth(); // assumes your AuthContext handles Google login
+  const [showModal, setShowModal] = useState(false);
+  const [userInfo, setUserInfo] = useState(null);
+  const [fullName, setFullName] = useState('');
+  const [district, setDistrict] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const { loginWithGoogle } = useAuth();
 
   useEffect(() => {
     GoogleSignin.configure({
@@ -21,45 +24,21 @@ export default function SignInScreen() {
     });
   }, []);
 
-  const handleSignIn = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password');
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      await login(email, password);
-    } catch (error) {
-      console.error('Login error:', error);
-      let errorMessage = 'An error occurred during login';
-      if (error.message.includes('Invalid credentials')) {
-        errorMessage = 'Invalid email or password. Please try again.';
-      } else if (error.message.includes('network')) {
-        errorMessage = 'Unable to connect to the server.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      Alert.alert('Login Failed', errorMessage);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleGoogleSignIn = async () => {
     try {
+      setIsLoading(true);
       await GoogleSignin.hasPlayServices();
-
       const result = await GoogleSignin.signIn();
       console.log('Google sign-in raw response:', JSON.stringify(result, null, 2));
 
-      if (result?.type !== 'success' || !result.data?.user || !result.data?.idToken) {
-        throw new Error('Google sign-in failed: Incomplete response');
+      const { idToken, user } = result.data;
+      if (!idToken || !user) {
+        throw new Error('Google sign-in failed: Missing token or user');
       }
 
-      const { user, idToken } = result.data;
-
-      await loginWithGoogle(idToken, user);
+      // Do NOT log in yet; wait for profile submission
+      setUserInfo({ ...user, idToken });
+      setShowModal(true);
     } catch (error) {
       if (isErrorWithCode(error)) {
         switch (error.code) {
@@ -76,118 +55,126 @@ export default function SignInScreen() {
             console.error('Unhandled Google sign-in error code:', error.code);
         }
       } else {
-        console.error('Unknown Google sign-in error:', error);
+        console.error('Google sign-in error:', error);
       }
-
       Alert.alert('Google Sign-In Failed', error.message || 'Something went wrong.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleSubmitProfile = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Submitting profile to backend...');
+      console.log(JSON.stringify({
+        googleId: userInfo.id,
+        email: userInfo.email,
+        name: fullName || userInfo.name,
+        phoneNumber,
+        district,
+        photo: userInfo.photo,
+      }, null, 2));
 
+
+      const response = await fetch('http://192.168.8.114:5001/api/users/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          googleId: userInfo.id,
+          email: userInfo.email,
+          name: fullName || userInfo.name,
+          phoneNumber,
+          district,
+          photo: userInfo.photo,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save user to database');
+      }
+
+      // Only now proceed to login
+      await loginWithGoogle(userInfo.idToken, userInfo);
+      setShowModal(false);
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Something went wrong.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar backgroundColor="#1E88E5" barStyle="light-content" />
-
       <View style={styles.header}>
-        <Link href=".." asChild>
-          <Text style={styles.backButton}>←</Text>
-        </Link>
         <Text style={styles.headerTitle}>Sign In</Text>
-        <View style={{ width: 24 }} />
       </View>
-
       <View style={styles.content}>
-        <View style={styles.logoContainer}>
-          <Image
-            source={require('@/assets/images/icon.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
-
-        <Text style={styles.welcomeText}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
-
-        <View style={styles.formContainer}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your email"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-
-          <View style={styles.passwordHeader}>
-            <Text style={styles.inputLabel}>Password</Text>
-            <TouchableOpacity>
-              <Text style={styles.forgotPassword}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Enter your password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
-
-          <TouchableOpacity
-            style={[styles.signInButton, isLoading && styles.disabledButton]}
-            onPress={handleSignIn}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.signInButtonText}>SIGN IN</Text>
-            )}
-          </TouchableOpacity>
-
-          {/* Google Sign-In Button */}
-          <TouchableOpacity
-            style={styles.googleButton}
-            onPress={handleGoogleSignIn}
-          >
+        <Image
+          source={require('@/assets/images/icon.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+        <Text style={styles.welcomeText}>Welcome</Text>
+        <Text style={styles.subtitle}>Sign in with your Google account</Text>
+        <TouchableOpacity
+          style={styles.googleButton}
+          onPress={handleGoogleSignIn}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
             <Text style={styles.googleButtonText}>Sign in with Google</Text>
-          </TouchableOpacity>
-
-          <View style={styles.signUpContainer}>
-            <Text style={styles.signUpText}>Don&#39;t have an account? </Text>
-            <Link href="/(auth)/sign-up" asChild>
-              <Text style={styles.signUpLink}>Sign Up</Text>
-            </Link>
-          </View>
-        </View>
+          )}
+        </TouchableOpacity>
       </View>
+
+      <Modal visible={showModal} animationType="slide" transparent>
+        <SafeAreaView style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Complete Your Profile</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Full Name"
+              value={fullName}
+              onChangeText={setFullName}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="District"
+              value={district}
+              onChangeText={setDistrict}
+            />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Phone Number"
+              keyboardType="phone-pad"
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+            />
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: '#eee' }]}
+              value={userInfo?.email}
+              editable={false}
+            />
+            <TouchableOpacity style={styles.googleButton} onPress={handleSubmitProfile}>
+              <Text style={styles.googleButtonText}>Submit</Text>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
     </View>
   );
 }
 
-
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     padding: 15,
     backgroundColor: '#1E88E5',
-  },
-  backButton: {
-    color: 'white',
-    fontSize: 24,
-    width: 24,
-    textAlign: 'center',
+    alignItems: 'center',
   },
   headerTitle: {
     color: 'white',
@@ -197,21 +184,18 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-  },
-  logoContainer: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 30,
+    justifyContent: 'center',
   },
   logo: {
     width: 100,
     height: 100,
+    marginBottom: 30,
   },
   welcomeText: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
@@ -220,65 +204,43 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 30,
   },
-  formContainer: {
-    width: '100%',
-  },
-  inputLabel: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    fontSize: 16,
-    color: '#333',
-  },
-  passwordHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  forgotPassword: {
-    color: '#1E88E5',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  signInButton: {
+  googleButton: {
     backgroundColor: '#1E88E5',
-    padding: 15,
+    paddingVertical: 15,
+    paddingHorizontal: 25,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 20,
+    minWidth: 220,
   },
-  signInButtonText: {
+  googleButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  disabledButton: {
-    backgroundColor: '#90CAF9',
-    opacity: 0.7,
-  },
-  signUpContainer: {
-    flexDirection: 'row',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
-    marginTop: 20,
+    alignItems: 'center',
   },
-  signUpText: {
-    color: '#666',
-    fontSize: 14,
+  modalContainer: {
+    backgroundColor: '#fff',
+    padding: 20,
+    width: '85%',
+    borderRadius: 10,
   },
-  signUpLink: {
-    color: '#1E88E5',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 5,
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 15,
+    width: '100%',
   },
 });
