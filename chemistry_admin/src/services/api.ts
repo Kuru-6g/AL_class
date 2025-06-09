@@ -3,11 +3,15 @@ import axios from 'axios';
 // Define types
 export interface ClassData {
   _id?: string;
-  title: string;
+  className: string;
   description: string;
+  subject: string;
   status: 'active' | 'inactive' | 'upcoming';
-  startDate: string;
-  endDate: string;
+  schedule: {
+    day: string;
+    time: string;
+    duration: number;
+  };
   maxStudents: number;
   price: number;
   createdAt?: string;
@@ -16,7 +20,7 @@ export interface ClassData {
 
 // Create axios instance with base URL and headers
 const api = axios.create({
-  baseURL: 'http://10.10.45.141:5001/api', // Your backend API URL
+  baseURL: 'http://localhost:5001/api/v1', // Local development backend API URL with version
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,19 +42,62 @@ api.interceptors.request.use(
   }
 );
 
+// Auth interfaces
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    mobile?: string;
+    role: string;
+  };
+}
+
 // API endpoints
+// User data returned by the getMe endpoint
+export interface MeResponse {
+  id: string;
+  name: string;
+  mobile: string;
+  role: string;
+  email?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export const authApi = {
-  login: (credentials: { email: string; password: string }) =>
-    api.post('/auth/login', credentials),
-  // Add other auth endpoints as needed
+  login: (email: string, password: string) => 
+    api.post<AuthResponse>('/auth/login', { email, password }),
+  getMe: () => api.get<MeResponse>('/auth/me'),
 };
+
+// Helper function to transform frontend class data to backend format
+const transformClassData = (data: any) => ({
+  className: data.className || data.title,
+  description: data.description,
+  subject: data.subject || 'Chemistry', // Default subject
+  schedule: data.schedule || {
+    day: 'Monday', // Default day, should be set from the form
+    time: '10:00', // Default time, should be set from the form
+    duration: 60, // Default duration in minutes
+  },
+  maxStudents: data.maxStudents,
+  price: data.price || 0,
+  status: data.status || 'upcoming',
+});
 
 export const classApi = {
   getAll: () => api.get<ClassData[]>('/classes'),
   getById: (id: string) => api.get<ClassData>(`/classes/${id}`),
-  create: (data: Omit<ClassData, '_id' | 'createdAt' | 'updatedAt'>) => api.post<ClassData>('/classes', data),
-  update: (id: string, data: Partial<Omit<ClassData, '_id' | 'createdAt' | 'updatedAt'>>) => 
-    api.put<ClassData>(`/classes/${id}`, data),
+  create: (data: any) => api.post<ClassData>('/classes', transformClassData(data)),
+  update: (id: string, data: any) => 
+    api.put<ClassData>(`/classes/${id}`, transformClassData(data)),
   delete: (id: string) => api.delete(`/classes/${id}`),
 };
 

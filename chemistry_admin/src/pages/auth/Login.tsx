@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import React, { useState, FormEvent } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Container,
   Box,
@@ -7,43 +7,56 @@ import {
   TextField,
   Button,
   Paper,
-  IconButton,
   InputAdornment,
   Alert,
   CircularProgress,
-  InputAdornmentProps,
+  Link as MuiLink,
+  IconButton,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Lock, Email } from '@mui/icons-material';
+import { Email, Lock, Visibility, VisibilityOff } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const navigate = useNavigate();
-  const { login } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const { login, loading, error: authError, clearError } = useAuth();
+  
+  // Toggle password visibility
+  const handleClickShowPassword = () => setShowPassword(!showPassword);
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+  };
+  
+  // Handle form submission
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError('');
+    setFormError('');
+    clearError();
     
+    // Basic validation
     if (!email || !password) {
-      setError('Please enter both email and password');
+      setFormError('Please enter both email and password');
       return;
     }
-
+    
     try {
-      setIsLoading(true);
+      setIsSubmitting(true);
       await login(email, password);
-      // Redirect handled by AuthContext after successful login
-    } catch (err) {
-      setError('Invalid email or password');
+      
+      // Redirect to dashboard or intended URL
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
+    } catch (err: any) {
       console.error('Login error:', err);
+      setFormError(err.message || 'Login failed. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -65,15 +78,16 @@ const Login: React.FC = () => {
             flexDirection: 'column',
             alignItems: 'center',
             width: '100%',
+            borderRadius: 2,
           }}
         >
-          <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-            Admin Panel Login
+          <Typography component="h1" variant="h5" sx={{ mb: 3, fontWeight: 'bold' }}>
+            Admin Login
           </Typography>
           
-          {error && (
+          {(formError || authError) && (
             <Alert severity="error" sx={{ width: '100%', mb: 2 }}>
-              {error}
+              {formError || authError}
             </Alert>
           )}
           
@@ -89,6 +103,7 @@ const Login: React.FC = () => {
               autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={isSubmitting || loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -97,6 +112,7 @@ const Login: React.FC = () => {
                 ),
               }}
             />
+            
             <TextField
               margin="normal"
               required
@@ -108,6 +124,7 @@ const Login: React.FC = () => {
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={isSubmitting || loading}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -118,7 +135,8 @@ const Login: React.FC = () => {
                   <InputAdornment position="end">
                     <IconButton
                       aria-label="toggle password visibility"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={handleClickShowPassword}
+                      onMouseDown={handleMouseDownPassword}
                       edge="end"
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
@@ -127,31 +145,25 @@ const Login: React.FC = () => {
                 ),
               }}
             />
+            
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2, padding: '10px' }}
-              disabled={isLoading}
+              sx={{ mt: 3, mb: 2, py: 1.5 }}
+              disabled={isSubmitting || loading || !email || !password}
+              startIcon={isSubmitting || loading ? <CircularProgress size={20} color="inherit" /> : null}
             >
-              {isLoading ? <CircularProgress size={24} /> : 'Sign In'}
+              {isSubmitting || loading ? 'Signing in...' : 'Sign In'}
             </Button>
             
             <Box sx={{ textAlign: 'center', mt: 2 }}>
-              <Link to="/forgot-password" style={{ textDecoration: 'none' }}>
-                <Typography variant="body2" color="primary">
-                  Forgot password?
-                </Typography>
-              </Link>
+              <MuiLink href="#" variant="body2" sx={{ color: 'text.secondary' }}>
+                Forgot password?
+              </MuiLink>
             </Box>
           </Box>
         </Paper>
-        
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            © {new Date().getFullYear()} Chemistry Class Admin
-          </Typography>
-        </Box>
       </Box>
     </Container>
   );

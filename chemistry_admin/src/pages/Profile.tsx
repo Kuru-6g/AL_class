@@ -30,9 +30,19 @@ const Profile: React.FC = () => {
   const [formData, setFormData] = React.useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: user?.phone || '',
+    phone: user?.mobile || user?.phone || '',
     avatar: user?.avatar || '',
   });
+
+  // Update form data when user changes
+  React.useEffect(() => {
+    setFormData({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.mobile || user?.phone || '',
+      avatar: user?.avatar || '',
+    });
+  }, [user]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -66,7 +76,7 @@ const Profile: React.FC = () => {
     setFormData({
       name: user?.name || '',
       email: user?.email || '',
-      phone: user?.phone || '',
+      phone: user?.mobile || user?.phone || '',
       avatar: user?.avatar || '',
     });
     setIsEditing(false);
@@ -185,7 +195,7 @@ const Profile: React.FC = () => {
                 ) : (
                   <ListItemText 
                     primary="Phone" 
-                    secondary={user?.phone || 'Not provided'} 
+                    secondary={user?.mobile || user?.phone || 'Not provided'} 
                   />
                 )}
               </ListItem>
