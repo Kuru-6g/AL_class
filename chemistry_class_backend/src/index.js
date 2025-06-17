@@ -8,6 +8,8 @@ const fs = require('fs');
 
 
 const userRoutes = require('./routes/users');
+const classRoutes = require('./routes/classes');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 
@@ -48,8 +50,9 @@ mongoose.connect(process.env.MONGODB_URI, {
 .catch(err => console.error('MongoDB connection error:', err));
 
 // Routes
-
 app.use('/api/users', userRoutes);
+app.use('/api/classes', classRoutes);
+app.use('/api/payments', paymentRoutes);
 
 
 // Serve static files from uploads directory
