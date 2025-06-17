@@ -1,122 +1,48 @@
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
-const ErrorResponse = require('../utils/errorResponse');
-const asyncHandler = require('../middleware/async');
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// @desc    Get current user profile
-// @route   GET /api/users/me
-// @access  Private
-exports.getUserProfile = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id).select('-password');
-  
-  if (!user) {
-    return next(new ErrorResponse('User not found', 404));
-  }
-  
-  res.status(200).json({
-    success: true,
-    data: user
-  });
-});
-
-// @desc    Update user profile
-// @route   PUT /api/users/update-profile
-// @access  Private
-exports.updateProfile = asyncHandler(async (req, res, next) => {
-  const fieldsToUpdate = {
-    fullName: req.body.fullName,
-    email: req.body.email,
-    phoneNumber: req.body.phoneNumber,
-    district: req.body.district,
-    nic: req.body.nic
-  };
-
-  // Remove undefined fields
-  Object.keys(fieldsToUpdate).forEach(key => 
-    fieldsToUpdate[key] === undefined && delete fieldsToUpdate[key]
-  );
-
-  const user = await User.findByIdAndUpdate(
-    req.user.id,
-    fieldsToUpdate,
-    {
-      new: true,
-      runValidators: true
+exports.createOrFindGoogleUser = async (req, res, next) => {
+  try {
+    // ✅ Step 1: Extract and verify Google ID token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'Missing or invalid token' });
     }
-  ).select('-password');
 
-  if (!user) {
-    return next(new ErrorResponse('User not found', 404));
-  }
-
-  res.status(200).json({
-    success: true,
-    data: user
-  });
-});
-
-// @desc    Update password
-// @route   PUT /api/users/update-password
-// @access  Private
-exports.updatePassword = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id).select('+password');
-
-  // Check current password
-  if (!(await user.matchPassword(req.body.currentPassword))) {
-    return next(new ErrorResponse('Current password is incorrect', 401));
-  }
-
-  user.password = req.body.newPassword;
-  await user.save();
-
-  sendTokenResponse(user, 200, res);
-});
-
-// @desc    Delete user account
-// @route   DELETE /api/users/delete-account
-// @access  Private
-exports.deleteAccount = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id);
-
-  if (!user) {
-    return next(new ErrorResponse('User not found', 404));
-  }
-
-  // In a real app, you might want to anonymize data instead of deleting
-  await user.deleteOne();
-
-  res.status(200).json({
-    success: true,
-    data: {}
-  });
-});
-
-// Get token from model, create cookie and send response
-const sendTokenResponse = (user, statusCode, res) => {
-  // Create token
-  const token = user.getSignedJwtToken();
-
-  const options = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
-    ),
-    httpOnly: true
-  };
-
-  if (process.env.NODE_ENV === 'production') {
-    options.secure = true;
-  }
-
-  res
-    .status(statusCode)
-    .cookie('token', token, options)
-    .json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.fullName,
-        email: user.email,
-        role: user.role
-      }
+    const idToken = authHeader.split(' ')[1];
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
+
+    const payload = ticket.getPayload(); // Google user info
+    const googleId = payload.sub;
+    const email = payload.email;
+
+    console.log('[Verified Google token]', email, googleId);
+
+    // ✅ Step 2: Create or return user
+    const { name, phoneNumber, district, photo } = req.body;
+
+    let user = await User.findOne({ googleId });
+    if (user) {
+      return res.status(200).json({ message: 'User already exists', user });
+    }
+
+    user = new User({
+      googleId,
+      email,
+      name,
+      phoneNumber,
+      district,
+      photo,
+    });
+
+    await user.save();
+    return res.status(201).json({ message: 'User created', user });
+  } catch (err) {
+    console.error('Token verification or user creation failed:', err);
+    return res.status(401).json({ message: 'Invalid or expired token' });
+  }
 };

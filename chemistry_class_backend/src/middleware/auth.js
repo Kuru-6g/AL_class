@@ -1,44 +1,34 @@
-const jwt = require('jsonwebtoken');
+const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
-const ErrorResponse = require('../utils/errorResponse');
 
-// Protect routes
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID); // from .env
+
 exports.protect = async (req, res, next) => {
-  let token;
+  const authHeader = req.headers.authorization;
 
-  if (
-    req.headers.authorization && 
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    token = req.headers.authorization.split(' ')[1];
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ message: 'No token provided' });
   }
 
-  // Make sure token exists
-  if (!token) {
-    return next(new ErrorResponse('Not authorized to access this route', 401));
-  }
+  const idToken = authHeader.split(' ')[1];
 
   try {
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = await User.findById(decoded.id);
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload(); // Google user info
+    const user = await User.findOne({ googleId: payload.sub });
+
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    req.user = user;
     next();
   } catch (err) {
-    return next(new ErrorResponse('Not authorized to access this route', 401));
+    console.error('Google token verification failed:', err);
+    return res.status(401).json({ message: 'Invalid or expired token' });
   }
-};
-
-// Grant access to specific roles
-exports.authorize = (...roles) => {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return next(
-        new ErrorResponse(
-          `User role ${req.user.role} is not authorized to access this route`,
-          403
-        )
-      );
-    }
-    next();
-  };
 };

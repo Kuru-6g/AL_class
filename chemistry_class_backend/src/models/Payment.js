@@ -1,50 +1,45 @@
 const mongoose = require('mongoose');
 
 const paymentSchema = new mongoose.Schema({
-  user: {
-    type: mongoose.Schema.ObjectId,
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  amount: {
-    type: Number,
-    required: [true, 'Please add an amount']
-  },
+  classIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ChemistryClass',
+    required: true
+  }],
   referenceNumber: {
     type: String,
-    required: [true, 'Please add a reference number']
+    required: true
   },
-  paymentMethod: {
+  paymentSlipUrl: {
     type: String,
-    enum: ['bank_transfer', 'credit_card', 'other'],
-    default: 'bank_transfer'
+    required: true
   },
-  slipImage: {
-    type: String,
-    required: [true, 'Please upload a payment slip']
+  userDetails: {
+    fullName: String,
+    phoneNumber: String,
+    nic: String,
+    district: String,
+    nicFrontUrl: String,
+    nicBackUrl: String
   },
   status: {
     type: String,
-    enum: ['pending', 'verified', 'rejected'],
-    default: 'pending'
+    enum: ['submitted', 'approved', 'rejected'],
+    default: 'submitted'
   },
-  verifiedBy: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'User'
+  createdAt: {
+    type: Date,
+    default: Date.now
   },
-  verifiedAt: {
-    type: Date
-  },
-  remarks: {
-    type: String
-  },
-  paidAt: {
+  updatedAt: {
     type: Date,
     default: Date.now
   }
 });
-
-// Prevent duplicate reference numbers
-paymentSchema.index({ referenceNumber: 1 }, { unique: true });
 
 module.exports = mongoose.model('Payment', paymentSchema);

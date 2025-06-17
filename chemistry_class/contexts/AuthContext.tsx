@@ -10,6 +10,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  loginWithGoogle: (idToken: string, user: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +32,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               'Authorization': `Bearer ${storedToken}`
             }
           });
-          
+
           if (response.ok) {
             const userData = await response.json();
             setToken(storedToken);
@@ -50,6 +51,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     loadUser();
   }, []);
+  const loginWithGoogle = async (idToken: string, user: any) => {
+    try {
+      console.log('Google ID Token:', idToken);
+      console.log('Google User:', JSON.stringify(user, null, 2));
+
+      if (!user) throw new Error('User object is undefined');
+
+      const safeUser = {
+        id: user.id || user.email || 'unknown',
+        name: user.name || `${user.givenName ?? ''} ${user.familyName ?? ''}`.trim(),
+        email: user.email || 'unknown@email.com',
+        photo: user.photo ?? null,
+      };
+
+      setUser(safeUser);
+      router.replace('/(tabs)');
+
+    } catch (err) {
+      console.error('Mock Google login failed', err);
+      throw new Error('Google login failed');
+    }
+  };
+
+
+
 
   const login = async (email: string, password: string) => {
     try {
@@ -62,7 +88,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         // If we have a custom error message from the server, use it
         if (data && data.message) {
@@ -70,18 +96,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         throw new Error(`Login failed with status ${response.status}`);
       }
-      
+
       if (!data.token) {
         throw new Error('No token received from server');
       }
-      
+
       // Store the token and user ID
       await SecureStore.setItemAsync(JWT_CONFIG.TOKEN_KEY, data.token);
       await setAuthToken(data.token, data.user.id);
-      
+
       setToken(data.token);
       setUser(data.user);
-      
+
       // Navigate to main app
       router.replace('/(tabs)');
     } catch (error) {
@@ -102,15 +128,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         });
       }
-      
+
       // Clear secure storage and auth data
       await SecureStore.deleteItemAsync(JWT_CONFIG.TOKEN_KEY);
       await removeAuthToken();
-      
+
       // Reset state
       setToken(null);
       setUser(null);
-      
+
       // Navigate to login
       router.replace('/(auth)/sign-in');
     } catch (error) {
@@ -125,10 +151,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, logout, loginWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );
+
 };
 
 export const useAuth = () => {

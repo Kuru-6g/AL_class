@@ -6,9 +6,9 @@ const fs = require('fs');
 
 // Configure Cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: "dbry7i0qd",
+  api_key: 715489631928848,
+  api_secret: '17JaoBHjyCapZ4xBV-BDo8rhDyE',
 });
 
 const upload = promisify(cloudinary.uploader.upload);
@@ -46,14 +46,27 @@ function checkFileType(file, cb) {
   }
 }
 
-// Initialize upload
+// Initialize upload for single file
 const uploadFile = multer({
   storage: storage,
-  limits: { fileSize: process.env.MAX_FILE_UPLOAD * 1024 * 1024 }, // 10MB max
+  limits: { fileSize: process.env.MAX_FILE_UPLOAD * 1024 * 1024 || 10 * 1024 * 1024 }, // 10MB max
   fileFilter: function (req, file, cb) {
     checkFileType(file, cb);
   },
 }).single('slipImage');
+
+// Initialize upload for multiple files
+const uploadMultipleFiles = multer({
+  storage: storage,
+  limits: { fileSize: process.env.MAX_FILE_UPLOAD * 1024 * 1024 || 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: function (req, file, cb) {
+    checkFileType(file, cb);
+  },
+}).fields([
+  { name: 'slipImage', maxCount: 1 },
+  { name: 'nicFrontImage', maxCount: 1 },
+  { name: 'nicBackImage', maxCount: 1 }
+]);
 
 // Upload to Cloudinary
 const uploadToCloudinary = async (filePath) => {
@@ -77,5 +90,6 @@ const uploadToCloudinary = async (filePath) => {
 
 module.exports = {
   uploadFile,
+  uploadMultipleFiles,
   uploadToCloudinary,
 };

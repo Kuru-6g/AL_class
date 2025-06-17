@@ -30,68 +30,33 @@ export type ClassItem = {
   isEnrolled?: boolean;
 };
 
-const allClasses: ClassItem[] = [
-  {
-    id: '1',
-    title: 'Organic Chemistry',
-    subject: 'Chemistry',
-    schedule: 'Mon, Wed, Fri • 08:00 AM',
-    teacher: 'Dr. Samantha Smith',
-    color: '#4CAF50',
-  },
-  {
-    id: '2',
-    title: 'Inorganic Chemistry',
-    subject: 'Chemistry',
-    schedule: 'Tue, Thu • 10:00 AM',
-    teacher: 'Prof. Robert Johnson',
-    color: '#2196F3',
-  },
-  {
-    id: '3',
-    title: 'Physical Chemistry',
-    subject: 'Chemistry',
-    schedule: 'Mon, Wed, Fri • 02:00 PM',
-    teacher: 'Dr. Emily Williams',
-    color: '#9C27B0',
-  },
-  {
-    id: '4',
-    title: 'Analytical Chemistry',
-    subject: 'Chemistry',
-    schedule: 'Tue, Thu • 01:00 PM',
-    teacher: 'Dr. Michael Brown',
+// Define API response interface
+interface ClassApiResponse {
+  success: boolean;
+  count: number;
+  data: Array<{
+    _id: string;
+    className: string;
+    description: string;
+    subject: string;
+    schedule: {
+      day: string;
+      time: string;
+      duration: number;
+    };
+    maxStudents: number;
+    createdBy: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+    __v: number;
+  }>;
+}
 
-    color: '#FF9800',
-  },
-  {
-    id: '5',
-    title: 'Biochemistry',
-    subject: 'Chemistry',
-    schedule: 'Mon, Wed • 04:00 PM',
-    teacher: 'Dr. Sarah Taylor',
+// Colors for class cards
+const classColors = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#E91E63', '#00BCD4', '#8BC34A'];
 
-    color: '#E91E63',
-  },
-  {
-    id: '6',
-    title: 'Industrial Chemistry',
-    subject: 'Chemistry',
-    schedule: 'Tue, Thu • 03:00 PM',
-    teacher: 'Dr. James Anderson',
-
-    color: '#00BCD4',
-  },
-  {
-    id: '7',
-    title: 'Environmental Chemistry',
-    subject: 'Chemistry',
-    schedule: 'Fri • 09:00 AM',
-    teacher: 'Dr. Patricia Martin',
-
-    color: '#8BC34A',
-  },
-];
+const allClasses: ClassItem[] = [];
 
 const ClassScreen = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -129,7 +94,6 @@ const ClassScreen = () => {
       const userId = await getCurrentUserId();
       if (!userId) {
         console.log('User not authenticated, skipping enrolled classes load');
-        setIsLoading(false);
         return;
       }
 
@@ -187,6 +151,40 @@ const ClassScreen = () => {
       }
     } catch (error) {
       console.error('Failed to load enrolled classes:', error);
+    }
+  }, []);
+
+  // Fetch classes from API
+  const fetchClasses = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://192.168.8.114:5001/api/classes');
+      const data: ClassApiResponse = await response.json();
+      
+      if (data.success && data.data.length > 0) {
+        const apiClasses = data.data.map((item, index) => {
+          // Assign a color from the array using modulo to cycle through colors
+          const colorIndex = index % classColors.length;
+          
+          return {
+            id: item._id,
+            title: item.className,
+            subject: item.subject,
+            schedule: `${item.schedule.day} • ${item.schedule.time}`,
+            teacher: "Instructor", // API doesn't provide teacher info
+            color: classColors[colorIndex],
+            // Add any other properties needed
+          };
+        });
+        
+        setClasses(apiClasses);
+      } else {
+        console.log('No classes found or API request failed');
+        setClasses([]);
+      }
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      setClasses([]);
     } finally {
       setIsLoading(false);
     }
@@ -194,14 +192,16 @@ const ClassScreen = () => {
 
   // Load classes on mount
   useEffect(() => {
+    fetchClasses();
     loadEnrolledClasses();
-  }, [loadEnrolledClasses]);
+  }, [fetchClasses, loadEnrolledClasses]);
 
   // Refresh when screen comes into focus
   useFocusEffect(
     useCallback(() => {
+      fetchClasses();
       loadEnrolledClasses();
-    }, [loadEnrolledClasses])
+    }, [fetchClasses, loadEnrolledClasses])
   );
 
   // Get filtered classes based on selected tab and filters

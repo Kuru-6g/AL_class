@@ -6,6 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId, getUserEnrolledClassesKey, isEnrollmentValid } from '../utils/auth';
+import { submitPayment } from '../services/paymentService';
 
 interface EnrolledClass {
   classId: string;
@@ -49,6 +50,10 @@ export default function PaymentScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [hasUploadedDetails, setHasUploadedDetails] = useState(false);
+
+  useEffect(() => {
+  AsyncStorage.removeItem(USER_DETAILS_KEY); // Clear stored user details
+}, []);
 
   // Load user details on component mount
   useEffect(() => {
@@ -170,8 +175,21 @@ export default function PaymentScreen() {
         setHasUploadedDetails(true);
       }
 
-      // Simulate file upload
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Get the class IDs from the URL params
+      const classIdArray = classIds?.split(',').filter(Boolean) || [];
+      
+      // Submit payment to API
+      const paymentResponse = await submitPayment({
+        classIds: classIdArray,
+        referenceNumber: referenceNumber.trim(),
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        nic: nic.trim(),
+        district: district.trim(),
+        paymentSlip: paymentSlip,
+        nicFrontImage: nicFrontImage,
+        nicBackImage: nicBackImage
+      });
 
       // Show success message
       setStatus('submitted');
@@ -183,9 +201,6 @@ export default function PaymentScreen() {
         if (!userId) {
           throw new Error('User not authenticated');
         }
-        
-        // Get the class IDs from the URL params
-        const classIdArray = classIds?.split(',').filter(Boolean) || [];
         
         if (classIdArray.length > 0) {
           const enrolledClassesKey = getUserEnrolledClassesKey(userId);
@@ -229,7 +244,8 @@ export default function PaymentScreen() {
           );
         }
         
-        // Update status to approved
+        // For now, we'll still set as approved since we don't have real-time status checking
+        // In a production app, you might want to poll the API for status updates
         setStatus('approved');
       } catch (error) {
         console.error('Error saving enrolled classes:', error);
