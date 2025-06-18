@@ -13,15 +13,15 @@ exports.submitPayment = asyncHandler(async (req, res, next) => {
       console.error('File upload error:', err);
       return next(new ErrorResponse(`Error uploading file: ${err.message}`, 400));
     }
-    
+
     try {
       console.log('Payment submission received:', req.body);
       console.log('Files received:', req.files);
-      
+
       let paymentSlipUrl = "https://placeholder.com/payment-slip.jpg";
       let nicFrontUrl = "https://placeholder.com/nic-front.jpg";
       let nicBackUrl = "https://placeholder.com/nic-back.jpg";
-      
+
       // Upload payment slip to Cloudinary if available
       if (req.files && req.files.slipImage && req.files.slipImage[0]) {
         try {
@@ -31,7 +31,7 @@ exports.submitPayment = asyncHandler(async (req, res, next) => {
           // Continue with placeholder URL
         }
       }
-      
+
       // Upload NIC front image to Cloudinary if available
       if (req.files && req.files.nicFrontImage && req.files.nicFrontImage[0]) {
         try {
@@ -41,7 +41,7 @@ exports.submitPayment = asyncHandler(async (req, res, next) => {
           // Continue with placeholder URL
         }
       }
-      
+
       // Upload NIC back image to Cloudinary if available
       if (req.files && req.files.nicBackImage && req.files.nicBackImage[0]) {
         try {
@@ -51,16 +51,21 @@ exports.submitPayment = asyncHandler(async (req, res, next) => {
           // Continue with placeholder URL
         }
       }
-      
+
       // Parse class IDs
       const classIds = req.body.classIds ? req.body.classIds.split(',') : [];
-      
+
+      // Generate a reference number
+      const referenceNumber = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`.toUpperCase();
+
       // Create payment record
       const payment = await Payment.create({
         userId: req.body.userId || "6845aa922d4927392bcd3965", // Use default ID if not provided
         classIds,
-        referenceNumber: req.body.referenceNumber || "TEST-REF",
+        zoomGmail: req.body.zoomGmail,
+        referenceNumber,
         paymentSlipUrl,
+        receiptType: req.body.receiptType,
         userDetails: {
           fullName: req.body.fullName || "Test User",
           phoneNumber: req.body.phoneNumber || "1234567890",
@@ -71,7 +76,7 @@ exports.submitPayment = asyncHandler(async (req, res, next) => {
         },
         status: 'submitted'
       });
-      
+
       res.status(201).json({
         success: true,
         data: payment
@@ -88,7 +93,7 @@ exports.submitPayment = asyncHandler(async (req, res, next) => {
 // @access  Private/Admin
 exports.getPayments = asyncHandler(async (req, res, next) => {
   const payments = await Payment.find().sort('-createdAt');
-  
+
   res.status(200).json({
     success: true,
     count: payments.length,
@@ -101,11 +106,11 @@ exports.getPayments = asyncHandler(async (req, res, next) => {
 // @access  Private
 exports.getPayment = asyncHandler(async (req, res, next) => {
   const payment = await Payment.findById(req.params.id);
-  
+
   if (!payment) {
     return next(new ErrorResponse(`Payment not found with id of ${req.params.id}`, 404));
   }
-  
+
   res.status(200).json({
     success: true,
     data: payment
@@ -117,21 +122,21 @@ exports.getPayment = asyncHandler(async (req, res, next) => {
 // @access  Private/Admin
 exports.updatePaymentStatus = asyncHandler(async (req, res, next) => {
   const { status } = req.body;
-  
+
   if (!['submitted', 'approved', 'rejected'].includes(status)) {
     return next(new ErrorResponse('Invalid status value', 400));
   }
-  
+
   const payment = await Payment.findByIdAndUpdate(
     req.params.id,
     { status, updatedAt: Date.now() },
     { new: true, runValidators: true }
   );
-  
+
   if (!payment) {
     return next(new ErrorResponse(`Payment not found with id of ${req.params.id}`, 404));
   }
-  
+
   res.status(200).json({
     success: true,
     data: payment

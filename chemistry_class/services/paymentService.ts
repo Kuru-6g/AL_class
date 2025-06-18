@@ -4,8 +4,9 @@ import { getAuthToken, getCurrentUserId } from '@/utils/auth';
 interface PaymentDetails {
   userId?: string;
   classIds: string[];
-  referenceNumber: string;
+  zoomGmail: string;
   fullName?: string;
+  receiptType?: string; // e.g., 'individual', 'company'
   phoneNumber?: string;
   nic?: string;
   district?: string;
@@ -34,7 +35,8 @@ export const submitPayment = async (paymentDetails: PaymentDetails): Promise<any
     // Add user ID and class IDs
     formData.append('userId', userId || '');
     formData.append('classIds', paymentDetails.classIds.join(','));
-    formData.append('referenceNumber', paymentDetails.referenceNumber);
+    formData.append('zoomGmail', paymentDetails.zoomGmail);
+    formData.append('receiptType', paymentDetails.receiptType || 'individual');
     
     // Add user details if provided
     if (paymentDetails.fullName) formData.append('fullName', paymentDetails.fullName);

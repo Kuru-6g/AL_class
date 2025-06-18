@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Image, ActivityIndicator, ScrollView } from 'react-native';
-import { Button, useTheme, TextInput } from 'react-native-paper';
+import { Button, useTheme, TextInput, RadioButton } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { useState, useEffect } from 'react';
 import * as ImagePicker from 'expo-image-picker';
@@ -7,7 +7,6 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId, getUserEnrolledClassesKey, isEnrollmentValid } from '../utils/auth';
 import { submitPayment } from '../services/paymentService';
-
 interface EnrolledClass {
   classId: string;
   enrolledAt: string;
@@ -40,7 +39,7 @@ export default function PaymentScreen() {
   const { classIds } = useLocalSearchParams<PaymentScreenParams>();
   const theme = useTheme();
   const [paymentSlip, setPaymentSlip] = useState<PaymentSlip | null>(null);
-  const [referenceNumber, setReferenceNumber] = useState('');
+  const [zoomGmail, setZoomGmail] = useState('');
   const [nic, setNic] = useState('');
   const [district, setDistrict] = useState('');
   const [fullName, setFullName] = useState('');
@@ -50,10 +49,10 @@ export default function PaymentScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [status, setStatus] = useState<PaymentStatus>('idle');
   const [hasUploadedDetails, setHasUploadedDetails] = useState(false);
-
+  const [receiptType, setReceiptType] = useState('cdm');
   useEffect(() => {
-  AsyncStorage.removeItem(USER_DETAILS_KEY); // Clear stored user details
-}, []);
+    AsyncStorage.removeItem(USER_DETAILS_KEY); // Clear stored user details
+  }, []);
 
   // Load user details on component mount
   useEffect(() => {
@@ -80,9 +79,9 @@ export default function PaymentScreen() {
 
   const pickImage = async (type: 'payment' | 'nicFront' | 'nicBack') => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
+        allowsEditing: true,
         quality: 0.8,
       });
 
@@ -107,10 +106,11 @@ export default function PaymentScreen() {
         }
       }
     } catch (error) {
-      console.error('Error picking image:', error);
-      alert('Failed to pick image. Please try again.');
+      console.error('Error capturing image:', error);
+      alert('Failed to capture image. Please try again.');
     }
   };
+
 
   const pickPaymentSlip = () => pickImage('payment');
   const pickNicFrontImage = () => pickImage('nicFront');
@@ -122,7 +122,7 @@ export default function PaymentScreen() {
       alert('Please select a payment receipt');
       return false;
     }
-    if (!referenceNumber.trim()) {
+    if (!zoomGmail.trim()) {
       alert('Please enter a reference number');
       return false;
     }
@@ -177,18 +177,19 @@ export default function PaymentScreen() {
 
       // Get the class IDs from the URL params
       const classIdArray = classIds?.split(',').filter(Boolean) || [];
-      
+
       // Submit payment to API
       const paymentResponse = await submitPayment({
         classIds: classIdArray,
-        referenceNumber: referenceNumber.trim(),
+        zoomGmail: zoomGmail.trim(),
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim(),
         nic: nic.trim(),
         district: district.trim(),
         paymentSlip: paymentSlip,
         nicFrontImage: nicFrontImage,
-        nicBackImage: nicBackImage
+        nicBackImage: nicBackImage,
+        receiptType:receiptType,
       });
 
       // Show success message
@@ -201,23 +202,23 @@ export default function PaymentScreen() {
         if (!userId) {
           throw new Error('User not authenticated');
         }
-        
+
         if (classIdArray.length > 0) {
           const enrolledClassesKey = getUserEnrolledClassesKey(userId);
           const now = new Date().toISOString();
-          
+
           // Get existing enrolled classes
           const existingEnrolled = await AsyncStorage.getItem(enrolledClassesKey);
           let enrolledClasses: EnrolledClass[] = [];
-          
+
           if (existingEnrolled) {
             try {
               // Filter out any invalid entries and expired enrollments
               const parsed = JSON.parse(existingEnrolled);
               if (Array.isArray(parsed)) {
-                enrolledClasses = parsed.filter((item: any) => 
-                  item?.classId && 
-                  item?.enrolledAt && 
+                enrolledClasses = parsed.filter((item: any) =>
+                  item?.classId &&
+                  item?.enrolledAt &&
                   isEnrollmentValid(item.enrolledAt)
                 );
               }
@@ -225,7 +226,7 @@ export default function PaymentScreen() {
               console.error('Error parsing enrolled classes:', error);
             }
           }
-          
+
           // Add new class enrollments with current timestamp
           const newEnrollments = classIdArray
             .filter(id => !enrolledClasses.some(ec => ec.classId === id))
@@ -233,17 +234,17 @@ export default function PaymentScreen() {
               classId,
               enrolledAt: now
             }));
-          
+
           // Combine existing and new enrollments
           const updatedEnrollments = [...enrolledClasses, ...newEnrollments];
-          
+
           // Save back to AsyncStorage
           await AsyncStorage.setItem(
-            enrolledClassesKey, 
+            enrolledClassesKey,
             JSON.stringify(updatedEnrollments)
           );
         }
-        
+
         // For now, we'll still set as approved since we don't have real-time status checking
         // In a production app, you might want to poll the API for status updates
         setStatus('approved');
@@ -252,7 +253,7 @@ export default function PaymentScreen() {
         // Still set as approved even if saving enrollment fails
         setStatus('approved');
       }
-      
+
     } catch (error) {
       console.error('Upload failed:', error);
       alert('Failed to upload payment slip. Please try again.');
@@ -276,21 +277,21 @@ export default function PaymentScreen() {
     if (status === 'submitted' || status === 'approved') {
       return (
         <View style={styles.statusContainer}>
-          <Ionicons 
-            name="checkmark-circle" 
-            size={80} 
-            color={status === 'approved' ? '#4CAF50' : theme.colors.primary} 
+          <Ionicons
+            name="checkmark-circle"
+            size={80}
+            color={status === 'approved' ? '#4CAF50' : theme.colors.primary}
           />
           <Text style={[styles.statusTitle, { color: status === 'approved' ? '#4CAF50' : theme.colors.primary }]}>
             {status === 'approved' ? 'Payment Approved!' : 'Payment Submitted'}
           </Text>
           <Text style={styles.statusText}>
-            {status === 'approved' 
+            {status === 'approved'
               ? 'Your payment has been verified. You now have access to the class.'
               : 'Your payment receipt has been submitted for verification.'}
           </Text>
-          {referenceNumber ? (
-            <Text style={styles.referenceText}>Reference: {referenceNumber}</Text>
+          {zoomGmail ? (
+            <Text style={styles.referenceText}>Reference: {zoomGmail}</Text>
           ) : null}
           <Button
             mode="contained"
@@ -307,22 +308,31 @@ export default function PaymentScreen() {
     return (
       <>
         <View style={styles.header}>
+
           <Text style={styles.headerTitle}>Upload Payment Receipt</Text>
         </View>
-        
+
         <ScrollView style={styles.scrollView}>
           <View style={styles.uploadContainer}>
-            <Ionicons 
-              name="receipt" 
-              size={80} 
-              color={theme.colors.primary} 
+            <Ionicons
+              name="receipt"
+              size={80}
+              color={theme.colors.primary}
               style={styles.uploadIcon}
             />
             <Text style={styles.uploadTitle}>Upload Your Payment Receipt</Text>
             <Text style={styles.uploadSubtitle}>
               Please upload a clear photo of your payment receipt for verification
             </Text>
-            
+            <View style={{ width: '100%', marginBottom: 16 }}>
+              <Text style={{ marginBottom: 8, fontWeight: 'bold' }}>Select Receipt Type:</Text>
+              <RadioButton.Group onValueChange={setReceiptType} value={receiptType}>
+                <RadioButton.Item label="CDM Receipt" value="cdm" />
+                <RadioButton.Item label="Direct Bank Slip" value="bank" />
+                <RadioButton.Item label="Online Transfer" value="online" />
+              </RadioButton.Group>
+            </View>
+
             {paymentSlip ? (
               <View style={styles.previewContainer}>
                 <Image
@@ -352,16 +362,7 @@ export default function PaymentScreen() {
               </Button>
             )}
 
-            <TextInput
-              label="Reference Number"
-              value={referenceNumber}
-              onChangeText={setReferenceNumber}
-              style={styles.input}
-              mode="outlined"
-              placeholder="Enter payment reference number"
-              disabled={isUploading}
-              keyboardType="numeric"
-            />
+
 
             {!hasUploadedDetails && (
               <>
@@ -376,7 +377,7 @@ export default function PaymentScreen() {
                   autoCapitalize="words"
                 />
                 <TextInput
-                  label="Phone Number"
+                  label="Telegram Number"
                   value={phoneNumber}
                   onChangeText={setPhoneNumber}
                   style={styles.input}
@@ -395,6 +396,15 @@ export default function PaymentScreen() {
                   disabled={isUploading}
                   keyboardType="default"
                   autoCapitalize="none"
+                />
+                <TextInput
+                  label="Zoom Gmail Address"
+                  value={zoomGmail}
+                  onChangeText={setZoomGmail}
+                  style={styles.input}
+                  mode="outlined"
+                  placeholder="Enter Zoom Gmail Address"
+                  disabled={isUploading}
                 />
 
                 <View style={styles.nicPhotosContainer}>
@@ -476,8 +486,8 @@ export default function PaymentScreen() {
             style={styles.submitButton}
             loading={isUploading}
             disabled={
-              !paymentSlip || 
-              !referenceNumber.trim() || 
+              !paymentSlip ||
+              !zoomGmail.trim() ||
               (!hasUploadedDetails && (!fullName.trim() || !phoneNumber.trim() || !nic.trim() || !district.trim() || !nicFrontImage || !nicBackImage)) ||
               isUploading
             }

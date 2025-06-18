@@ -11,13 +11,17 @@ const paymentSchema = new mongoose.Schema({
     ref: 'ChemistryClass',
     required: true
   }],
-  referenceNumber: {
+  zoomGmail: {
     type: String,
-    required: true
+    required: false
   },
   paymentSlipUrl: {
     type: String,
     required: true
+  },
+  receiptType: {
+    type: String,
+    required: false
   },
   userDetails: {
     fullName: String,
