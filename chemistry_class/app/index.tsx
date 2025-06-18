@@ -1,26 +1,29 @@
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, Stack } from 'expo-router';
 import { Image } from 'expo-image';
 
 export default function WelcomeScreen() {
   return (
-    <View style={styles.container}>
-      <StatusBar backgroundColor="#1E88E5" barStyle="light-content" />
-      <View style={styles.content}>
-        <Text style={styles.title}>Welcome to</Text>
-        <Text style={styles.appName}>Chemistry Class</Text>
-        <Text style={styles.subtitle}>Learn, Explore, Succeed</Text>
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.container}>
+        <StatusBar backgroundColor="#1E88E5" barStyle="light-content" />
+        <View style={styles.content}>
+          <Text style={styles.title}>Welcome to</Text>
+          <Text style={styles.appName}>Chemistry Class</Text>
+          <Text style={styles.subtitle}>Learn, Explore, Succeed</Text>
+        </View>
+        <View style={styles.footer}>
+          <Text style={styles.byLine}>By</Text>
+          <Text style={styles.companyName}>Guru's Classes</Text>
+        </View>
+        <Link href="/(auth)/sign-in" asChild>
+          <TouchableOpacity style={styles.button}>
+            <Text style={styles.buttonText}>Get Started</Text>
+          </TouchableOpacity>
+        </Link>
       </View>
-      <View style={styles.footer}>
-        <Text style={styles.byLine}>By</Text>
-        <Text style={styles.companyName}>Guru's Classes</Text>
-      </View>
-      <Link href="/(auth)/sign-in" asChild>
-        <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Get Started</Text>
-        </TouchableOpacity>
-      </Link>
-    </View>
+    </>
   );
 }
 

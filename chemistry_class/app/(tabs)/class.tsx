@@ -298,7 +298,7 @@ const ClassScreen = () => {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
       >
-        <View style={styles.filterContainer}>
+        {/* <View style={styles.filterContainer}>
           <TouchableOpacity 
             style={[styles.filterChip, selectedCategory === 'all' && styles.filterChipActive]}
             onPress={() => setSelectedCategory('all')}
@@ -323,7 +323,7 @@ const ClassScreen = () => {
           >
             <Text style={[styles.filterChipText, selectedCategory === 'completed' && styles.filterChipTextActive]}>Completed</Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         {filteredClasses.length === 0 ? (
           <View style={styles.emptyState}>

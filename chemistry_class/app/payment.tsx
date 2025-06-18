@@ -186,7 +186,7 @@ export default function PaymentScreen() {
         phoneNumber: phoneNumber.trim(),
         nic: nic.trim(),
         district: district.trim(),
-        paymentSlip: paymentSlip,
+        paymentSlip: paymentSlip ?? undefined,
         nicFrontImage: nicFrontImage,
         nicBackImage: nicBackImage,
         receiptType:receiptType,

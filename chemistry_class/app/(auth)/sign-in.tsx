@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { GoogleSignin, statusCodes, isErrorWithCode } from '@react-native-google-signin/google-signin';
 import { useAuth } from '@/contexts/AuthContext';
-
+import * as SecureStore from 'expo-secure-store';
 export default function SignInScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -35,7 +35,8 @@ export default function SignInScreen() {
       if (!idToken || !user) {
         throw new Error('Google sign-in failed: Missing token or user');
       }
-
+      await SecureStore.setItemAsync('idToken', idToken);
+      console.log('Google sign-in successful, token stored');
       // Do NOT log in yet; wait for profile submission
       setUserInfo({ ...user, idToken });
       setShowModal(true);
